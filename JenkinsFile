@@ -1,0 +1,34 @@
+pipeline {
+        agent any
+
+        triggers {
+                // Check src for changes every 15 mins and trigger in case of changes
+                pollSCM('H/15 * * * *')
+        }
+
+        stages {
+                stage('Checkout') {
+                        steps {
+                                git 'https://github.com/usegalaxy-it/infrastructure-playbook'
+                        }
+                }
+
+                stage('Setup') {
+                        steps {
+                                sh 'python3 -m venv master_venv'
+                                sh 'source master_venv/bin/activate'
+                                sh 'pip install --upgrade pip || true'
+                                sh 'pip install -r requirements.txt'
+                                sh 'ansible-galaxy install -r requirements.yml'
+                                sh 'rm -f .vault_password'
+                                sh 'cp $VAULT_PASS_USEGALAXY .vault_password'
+                        }
+                }
+
+                stage('Run Ansible') {
+                        steps {
+                                sh 'ansible-playbook -i hosts sn06.yml --extra-vars "__galaxy_dir_perms='0755'"'
+                        }
+                }
+        }
+}
